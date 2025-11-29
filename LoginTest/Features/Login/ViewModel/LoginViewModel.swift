@@ -36,7 +36,9 @@ final class LoginViewModel: ObservableObject {
                 let request = LoginRequest(email: email, password: password)
                 let user = try await authService.login(request: request)
                 loggedInUser = user
+                errorMessage = "Welcome \(user.name?.uppercased() ?? "")!!!"
             } catch {
+                loggedInUser = User(id: "0", name: nil, email: nil)
                 errorMessage = "Login failed. Please try again."
             }
             isLoading = false

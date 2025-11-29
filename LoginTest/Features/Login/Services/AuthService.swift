@@ -20,7 +20,7 @@ final class AuthService: AuthServicing {
         print(domain)
         if domain == "gmail.com"{
             let user = User(id: "1", name: String(request.email.lowercased().split(separator: "@")[0]), email: request.email.lowercased())
-            print(user)
+//            print(user)
             return user
         }
         throw NSError(domain: "NotImplemented", code: -1)
