@@ -1,4 +1,4 @@
-name: SwiftReview AI
+name: SwiftReview AI (GROQ)
 
 on:
   pull_request:
@@ -7,15 +7,14 @@ on:
 
 jobs:
   swiftreview:
-    name: Run SwiftReview AI
     runs-on: ubuntu-latest
 
     permissions:
-      pull-requests: write     # required to create PR review comments
       contents: read
+      pull-requests: write
 
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -27,12 +26,13 @@ jobs:
 
       - name: Install deps
         run: |
-          pip install openai requests
+          pip install requests groq || pip install requests
 
-      - name: Run SwiftReview AI
+      - name: Run SwiftReview AI (GROQ)
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_MODEL: "llama3.1-70b"          # change to a model you have access to
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
