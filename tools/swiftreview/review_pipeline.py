@@ -31,7 +31,10 @@ def process_review(diff, llm):
         end = raw.rfind("}")
         data = json.loads(raw[start:end+1])
 
-    return format_review_comment(data)
+    return {
+        "markdown": format_review_comment(data),
+        "risk": data.get("risk", 0)
+    }
 
 
 def format_review_comment(data):

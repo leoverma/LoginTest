@@ -66,10 +66,20 @@ def run_from_event_path(event_path):
 
     print("Running review...")
     llm = GroqLLM()
-    review_markdown = process_review(diff, llm)
+    review = process_review(diff, llm)
+
+    risk = review["risk"]
+
+    if risk <= 8:
+        print(f"Risk score {risk} <= 8. Failing PR check and blocking merge.")
+        # Post comment anyway
+        post_comment(owner, repo, pr_number, review["markdown"])
+        raise SystemExit(1)  # FAIL CI → Block merge
+    else:
+        print(f"✅ SwiftReview AI score {risk} ≥ 8. Merge allowed.")
 
     print("Posting comment...")
-    post_comment(owner, repo, pr_number, review_markdown)
+    post_comment(owner, repo, pr_number, review["markdown"])
 
     print("SwiftReview AI completed successfully.")
 
