@@ -76,7 +76,16 @@ def call_groq_llm(system_prompt: str, user_prompt: str) -> str:
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_prompt}
     ]
-    return groq_chat(messages=messages, temperature=TEMPERATURE, max_tokens=MAX_TOKENS)
+    llm = GroqLLM(api_key=os.getenv("GROQ_API_KEY"))
+
+    messages = [
+        {"role": "system", "content": "You are SwiftReview AI"},
+        {"role": "user", "content": "Review this PR diff: ..."}
+    ]
+
+    result = llm.chat(messages)
+    print(result)
+    # return groq_chat(messages=messages, temperature=TEMPERATURE, max_tokens=MAX_TOKENS)
 
 def parse_llm_json_response(message_content: str) -> Dict[str, Any]:
     # Extract the largest JSON object
