@@ -76,7 +76,7 @@ def run_from_event_path(event_path):
         post_comment(owner, repo, pr_number, review["markdown"])
         raise SystemExit(1)  # FAIL CI → Block merge
     else:
-    print(f"✅ SwiftReview AI score {risk} ≥ 8. Merge allowed.")
+        print(f"✅ SwiftReview AI score {risk} ≥ 8. Merge allowed.")
     
     print("Posting comment...")
     post_comment(owner, repo, pr_number, review["markdown"])
