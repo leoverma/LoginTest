@@ -199,46 +199,48 @@ def run_from_event_path(event_path: str):
     review_input = build_review_content(gh, owner, repo, pr_number)
 
     # If the input is large, split into chunks
+    # Split chunks for safe LLM processing
     chunks = split_into_chunks(review_input, max_chars=9000)
     log.info(f"Split review input into {len(chunks)} chunk(s)")
 
     llm = GroqLLM()
 
-    # Process each chunk and merge results
-    combined_markdown_parts: List[str] = []
-    combined_risk = 0
+    # Combined structured result
+    combined = {
+        "summary": "",
+        "major_issues": [],
+        "minor_issues": [],
+        "suggestions": [],
+        "risk": 0,
+        "final_comment": ""
+    }
 
     for idx, chunk in enumerate(chunks, start=1):
         log.info(f"Processing chunk {idx}/{len(chunks)}")
-        # process_review should return a dict: {"markdown": "...", "risk": n}
+
         partial = process_review(chunk, llm)
 
-        if not isinstance(partial, dict) or "markdown" not in partial:
-            # Defensive: if process_review returns raw markdown, wrap it
-            log.warning("process_review returned unexpected format; coercing to markdown-only result.")
-            partial_markdown = str(partial)
-            partial_risk = 0
-        else:
-            partial_markdown = partial["markdown"]
-            partial_risk = int(partial.get("risk", 0))
+        # partial itself is already markdown → parse JSON is done inside process_review
+        combined["summary"] += f"\nChunk {idx} Summary:\n" + partial.get("summary", "")
 
-        combined_markdown_parts.append(f"## Chunk {idx} Analysis\n\n" + partial_markdown)
-        combined_risk = max(combined_risk, partial_risk)
+        combined["major_issues"].extend(partial.get("major_issues", []))
+        combined["minor_issues"].extend(partial.get("minor_issues", []))
+        combined["suggestions"].extend(partial.get("suggestions", []))
 
-    # Build final markdown
-    final_markdown = (
-        "### 🧠 SwiftReview AI — Combined PR Review\n\n"
-        f"**Combined risk score (max across chunks): {combined_risk}/10**\n\n"
-        + "\n\n".join(combined_markdown_parts)
-    )
+        combined["risk"] = max(combined["risk"], partial.get("risk", 0))
 
-    # Post the combined comment
+    combined["final_comment"] = "Combined analysis of all code segments."
+
+    # Convert merged structured data → final markdown
+    final_markdown = format_review_comment(combined)
+
+    # Post single clean comment
     gh.post_comment(owner, repo, pr_number, final_markdown)
 
-    # Block merge if risk below threshold
-    if combined_risk < 8:
-        log.error(f"❌ SwiftReviewAI Risk Score {combined_risk} < 8 — Merge Blocked.")
-        # Exit non-zero to make GitHub Action fail (and block merge if required)
+    # Merge block
+    if combined["risk"] < 8:
+        log.error(f"❌ Risk {combined['risk']} < 8 — Merge Blocked.")
         raise SystemExit(1)
 
-    log.info(f"✅ SwiftReviewAI Risk Score {combined_risk} ≥ 8 — Merge Allowed.")
+    log.info(f"✅ Risk {combined['risk']} ≥ 8 — Merge Allowed.")
+
