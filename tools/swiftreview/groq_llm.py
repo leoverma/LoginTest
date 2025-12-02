@@ -130,7 +130,7 @@
 import time
 from groq import Groq
 
-groq_model="llama-3.1-70b-versatile"
+groq_model="llama-3.3-70b-specdec"
 
 class GroqLLM:
     def __init__(self, api_key, model=groq_model, max_retries=3):
