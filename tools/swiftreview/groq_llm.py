@@ -130,8 +130,10 @@
 import time
 from groq import Groq
 
+groq_model="llama-3.1-70b-versatile"
+
 class GroqLLM:
-    def __init__(self, api_key, model="llama3-70b-8192", max_retries=3):
+    def __init__(self, api_key, model=groq_model, max_retries=3):
         self.client = Groq(api_key=api_key)
         self.model = model
         self.max_retries = max_retries
