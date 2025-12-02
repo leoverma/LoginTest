@@ -1,11 +1,11 @@
 """
-GitHub Layer for SwiftReview AI
---------------------------------
-✔ Handles PR diff & file fetching (with pagination)
-✔ Fetches raw file contents for newly added files
-✔ Handles rate-limits & retry logic
-✔ PEP-8 compliant and no global state
-✔ Provides merge-block logic based on LLM "risk" score
+github_layer.py
+
+Production-ready GitHub layer for SwiftReview AI with chunking support.
+- Builds unified input (diff + raw files)
+- Splits into safe-sized chunks for LLM requests
+- Processes each chunk and merges results
+- Posts a single comment and blocks merge if risk < 8
 """
 
 import json
@@ -18,47 +18,31 @@ from typing import Dict, Any, List
 from groq_llm import GroqLLM
 from review_pipeline import process_review
 
-
-# -----------------------------------------------------------
+# -------------------------
 # Logging
-# -----------------------------------------------------------
+# -------------------------
 logging.basicConfig(level=logging.INFO, format="SWIFTREVIEW: %(message)s")
 log = logging.getLogger("SwiftReview")
 
 
-# -----------------------------------------------------------
-# GitHub API Client
-# -----------------------------------------------------------
+# -------------------------
+# GitHub client
+# -------------------------
 class GitHubClient:
-    """Robust GitHub API wrapper with pagination and rate-limit handling."""
+    """Small GitHub client with retries, pagination, and rate-limit handling."""
 
     def __init__(self, token: str):
         if not token:
             raise RuntimeError("Missing GITHUB_TOKEN")
-
         self.session = requests.Session()
         self.headers = {
             "Authorization": f"Bearer {token}",
             "Accept": "application/vnd.github.v3+json"
         }
 
-    def split_into_chunks(text: str, max_chars: int = 15000) -> list:
-        """Split large review input into safe-sized chunks for Groq."""
-        chunks = []
-        while len(text) > max_chars:
-            split_point = text.rfind("\n", 0, max_chars)
-            if split_point == -1:
-                split_point = max_chars
-            chunks.append(text[:split_point])
-            text = text[split_point:]
-        chunks.append(text)
-        return chunks
-        
-    # ------------------------------------------
-    # Safe GET request (retry + rate-limit)
-    # ------------------------------------------
     def get(self, url: str, extra_headers: Dict[str, str] = None, retries: int = 5) -> requests.Response:
         headers = {**self.headers, **(extra_headers or {})}
+        response = None
 
         for attempt in range(1, retries + 1):
             try:
@@ -68,99 +52,99 @@ class GitHubClient:
                 time.sleep(1.5)
                 continue
 
-            # Handle rate-limit (403 + X-RateLimit-Remaining = 0)
-            if (
-                response.status_code == 403 and
-                response.headers.get("X-RateLimit-Remaining") == "0"
-            ):
+            # Rate-limit handling
+            if response.status_code == 403 and response.headers.get("X-RateLimit-Remaining") == "0":
                 wait = int(response.headers.get("Retry-After", "5"))
-                log.warning(f"Rate limited. Waiting {wait}s before retry...")
+                log.warning(f"Rate limited. Waiting {wait}s...")
                 time.sleep(wait)
                 continue
 
-            # Success
+            # Success path
             if 200 <= response.status_code < 300:
                 return response
 
-            log.warning(f"GitHub API error {response.status_code}. Retry {attempt}/{retries}")
-            time.sleep(1.3)
+            # Otherwise retry
+            log.warning(f"GitHub API returned {response.status_code}. Retry {attempt}/{retries}")
+            time.sleep(1.2)
 
-        raise RuntimeError(f"GitHub GET failed after retries. Last response: {response.text}")
+        # If we've exhausted retries
+        body = response.text if response is not None else "<no response>"
+        raise RuntimeError(f"GET {url} failed after {retries} retries. Last response: {body}")
 
-    # ------------------------------------------
-    # Get ALL PR files (pagination)
-    # ------------------------------------------
     def get_pr_files(self, owner: str, repo: str, pr_number: int) -> List[Dict[str, Any]]:
-        log.info(f"Fetching PR files for PR #{pr_number}…")
-
+        """Return full list of files changed in PR (handles pagination)."""
+        log.info(f"Listing files for PR #{pr_number}")
         page = 1
         per_page = 100
-        all_files = []
+        all_files: List[Dict[str, Any]] = []
 
         while True:
-            url = (
-                f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/files"
-                f"?page={page}&per_page={per_page}"
-            )
-
-            response = self.get(url)
-            batch = response.json()
+            url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/files?page={page}&per_page={per_page}"
+            resp = self.get(url)
+            batch = resp.json()
 
             if not isinstance(batch, list):
-                raise RuntimeError(f"Invalid GitHub response for PR files: {batch}")
+                raise RuntimeError(f"Unexpected response for PR files: {batch}")
 
             all_files.extend(batch)
-
             if len(batch) < per_page:
                 break
-
             page += 1
 
         log.info(f"Total files retrieved: {len(all_files)}")
         return all_files
 
-    # ------------------------------------------
-    # Get PR diff as patch
-    # ------------------------------------------
     def get_pr_diff(self, owner: str, repo: str, pr_number: int) -> str:
-        log.info("Fetching PR diff…")
-
+        """Return PR diff/patch text (may be empty)."""
+        log.info("Fetching PR diff (patch format)...")
         url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}"
-        headers = {"Accept": "application/vnd.github.v3.patch"}
+        extra_headers = {"Accept": "application/vnd.github.v3.patch"}
+        resp = self.get(url, extra_headers=extra_headers)
+        diff_text = resp.text or ""
+        if not diff_text.strip():
+            log.warning("Empty diff received from GitHub (patch). Will fallback to raw file contents.")
+        return diff_text
 
-        response = self.get(url, extra_headers=headers)
-        diff = response.text or ""
-
-        if not diff.strip():
-            log.warning("Empty diff received — will fall back to raw files.")
-
-        return diff
-
-    # ------------------------------------------
-    # Get raw file source
-    # ------------------------------------------
     def get_raw_file(self, raw_url: str) -> str:
-        response = self.get(raw_url)
-        content = response.text or ""
-        return content if content.strip() else "// Empty or binary file."
+        resp = self.get(raw_url)
+        text = resp.text or ""
+        return text if text.strip() else "// Empty or binary file."
 
-    # ------------------------------------------
-    # Post PR comment
-    # ------------------------------------------
     def post_comment(self, owner: str, repo: str, pr_number: int, body: str):
         url = f"https://api.github.com/repos/{owner}/{repo}/issues/{pr_number}/comments"
-
-        response = self.session.post(url, headers=self.headers, json={"body": body}, timeout=10)
-        if response.status_code not in (200, 201):
-            raise RuntimeError(f"Failed to post PR comment: {response.status_code}\n{response.text}")
-
-        return response.json()
+        resp = self.session.post(url, headers=self.headers, json={"body": body}, timeout=10)
+        if resp.status_code not in (200, 201):
+            raise RuntimeError(f"Failed to post comment: {resp.status_code}\n{resp.text}")
+        return resp.json()
 
 
-# -----------------------------------------------------------
-# Build combined input for LLM (diff + raw files + patches)
-# -----------------------------------------------------------
+# -------------------------
+# Chunking utility
+# -------------------------
+def split_into_chunks(text: str, max_chars: int = 11000) -> List[str]:
+    """
+    Split text into chunks safely by splitting at newline boundaries when possible.
+    Groq error indicated token limits; using a max_chars heuristic helps keep token size low.
+    """
+    chunks: List[str] = []
+    remaining = text
+    while len(remaining) > max_chars:
+        # Prefer splitting at the last newline before max_chars
+        split_point = remaining.rfind("\n", 0, max_chars)
+        if split_point == -1:
+            split_point = max_chars
+        chunk = remaining[:split_point]
+        chunks.append(chunk)
+        remaining = remaining[split_point:]
+    chunks.append(remaining)
+    return chunks
+
+
+# -------------------------
+# Build input for review
+# -------------------------
 def build_review_content(gh: GitHubClient, owner: str, repo: str, pr_number: int) -> str:
+    """Combine PR patch + raw contents of files into a single text blob for analysis."""
     diff_text = gh.get_pr_diff(owner, repo, pr_number)
     files = gh.get_pr_files(owner, repo, pr_number)
 
@@ -174,31 +158,33 @@ def build_review_content(gh: GitHubClient, owner: str, repo: str, pr_number: int
 
         combined += f"\n\n--- FILE: {filename} (status: {status}) ---\n"
 
-        # Add raw file content
         if raw_url:
             try:
                 combined += gh.get_raw_file(raw_url)
             except Exception as e:
-                combined += f"// Failed to load raw file: {e}\n"
+                combined += f"// Failed to fetch raw file: {e}\n"
 
-        # Add patch/diff content
         if patch:
             combined += f"\n--- PATCH FOR {filename} ---\n{patch}\n"
 
     return combined
 
 
-# -----------------------------------------------------------
-# Entry Point — Called from event_handler.py
-# -----------------------------------------------------------
+# -------------------------
+# Entry point used by event_handler.py
+# -------------------------
 def run_from_event_path(event_path: str):
     if not os.path.exists(event_path):
         raise RuntimeError(f"GitHub event file not found: {event_path}")
 
-    payload = json.load(open(event_path))
+    log.info(f"Loading GitHub event: {event_path}")
+    try:
+        payload = json.load(open(event_path))
+    except Exception as e:
+        raise RuntimeError(f"Unable to read GitHub event JSON: {e}")
 
     if "pull_request" not in payload:
-        raise RuntimeError("This event is not a pull_request event.")
+        raise RuntimeError("Event is not a pull_request event.")
 
     owner = payload["repository"]["owner"]["login"]
     repo = payload["repository"]["name"]
@@ -207,54 +193,52 @@ def run_from_event_path(event_path: str):
     github_token = os.getenv("GITHUB_TOKEN")
     gh = GitHubClient(github_token)
 
-    log.info(f"Preparing SwiftReview AI analysis for PR #{pr_number}…")
+    log.info(f"Preparing analysis input for PR #{pr_number} in {owner}/{repo}")
 
-    # Build input
+    # Build the big review input (diff + files)
     review_input = build_review_content(gh, owner, repo, pr_number)
 
-    # Run LLM
-    llm = GroqLLM()
+    # If the input is large, split into chunks
     chunks = split_into_chunks(review_input, max_chars=9000)
+    log.info(f"Split review input into {len(chunks)} chunk(s)")
 
-    combined_review = {
-        "summary": "",
-        "major_issues": [],
-        "minor_issues": [],
-        "suggestions": [],
-        "risk": 0,
-        "final_comment": ""
-    }
+    llm = GroqLLM()
+
+    # Process each chunk and merge results
+    combined_markdown_parts: List[str] = []
+    combined_risk = 0
 
     for idx, chunk in enumerate(chunks, start=1):
-        log.info(f"Processing chunk {idx}/{len(chunks)}...")
+        log.info(f"Processing chunk {idx}/{len(chunks)}")
+        # process_review should return a dict: {"markdown": "...", "risk": n}
         partial = process_review(chunk, llm)
 
-        # merge summaries
-        combined_review["summary"] += f"\n\n[Chunk {idx} Summary]\n" + partial["markdown"]
+        if not isinstance(partial, dict) or "markdown" not in partial:
+            # Defensive: if process_review returns raw markdown, wrap it
+            log.warning("process_review returned unexpected format; coercing to markdown-only result.")
+            partial_markdown = str(partial)
+            partial_risk = 0
+        else:
+            partial_markdown = partial["markdown"]
+            partial_risk = int(partial.get("risk", 0))
 
-        # merge lists
-        combined_review["major_issues"].extend(partial.get("major_issues", []))
-        combined_review["minor_issues"].extend(partial.get("minor_issues", []))
-        combined_review["suggestions"].extend(partial.get("suggestions", []))
+        combined_markdown_parts.append(f"## Chunk {idx} Analysis\n\n" + partial_markdown)
+        combined_risk = max(combined_risk, partial_risk)
 
-        # update risk (take max, better safety)
-        combined_review["risk"] = max(combined_review["risk"], partial.get("risk", 0))
+    # Build final markdown
+    final_markdown = (
+        "### 🧠 SwiftReview AI — Combined PR Review\n\n"
+        f"**Combined risk score (max across chunks): {combined_risk}/10**\n\n"
+        + "\n\n".join(combined_markdown_parts)
+    )
 
-    # Now we have a merged review
-    review = {
-        "markdown": combined_review["summary"],
-        "risk": combined_review["risk"]
-    }
+    # Post the combined comment
+    gh.post_comment(owner, repo, pr_number, final_markdown)
 
-
-    # Post review comment
-    gh.post_comment(owner, repo, pr_number, review["markdown"])
-
-    # Merge block rule: risk < 8
-    risk = review.get("risk", 0)
-
-    if risk < 8:
-        log.error(f"❌ Risk score {risk} < 8 — merge blocked.")
+    # Block merge if risk below threshold
+    if combined_risk < 8:
+        log.error(f"❌ SwiftReviewAI Risk Score {combined_risk} < 8 — Merge Blocked.")
+        # Exit non-zero to make GitHub Action fail (and block merge if required)
         raise SystemExit(1)
 
-    log.info(f"✅ Risk score {risk} >= 8 — merge allowed.")
+    log.info(f"✅ SwiftReviewAI Risk Score {combined_risk} ≥ 8 — Merge Allowed.")
