@@ -5,5 +5,5 @@
 //  Created by Manish.K on 12/2/25.
 //
 class UserProfileFetcher {
-    var username: String!   // force unwrap
+    var username: String!  
 }
