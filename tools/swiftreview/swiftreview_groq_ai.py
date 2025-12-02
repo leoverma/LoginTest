@@ -1,5 +1,5 @@
 """
-swiftreview_ai.py
+swiftreview_groq_ai.py
 LLM pipeline for SwiftReview AI (GROQ-backed).
 """
 
