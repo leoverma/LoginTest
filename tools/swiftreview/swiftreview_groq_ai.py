@@ -112,11 +112,13 @@ def format_github_review_comments(parsed_json: Dict[str, Any]) -> List[Dict[str,
         comments.append(comment)
     return comments
 
-# Optional local run test
-if __name__ == "__main__":
-    repo = "example/repo"
-    pr_number = 1
-    file_list = ["Sources/Example/VC.swift"]
-    diff_snippets = "+++ Sources/Example/VC.swift\n- let x = foo!\n+ let x = foo ?? default"
-    parsed = review_pr_with_llm(repo, pr_number, file_list, diff_snippets, context_notes="run swiftlint")
-    print(json.dumps(parsed, indent=2))
+# # Optional local run test
+# if __name__ == "__main__":
+#     repo = "example/repo"
+#     pr_number = 1
+#     file_list = ["Sources/Example/VC.swift"]
+#     diff_snippets = "+++ Sources/Example/VC.swift\n- let x = foo!\n+ let x = foo ?? default"
+#     print("Running local test of swiftreview_groq_ai...")
+#     print(repo, pr_number, file_list, diff_snippets)
+#     parsed = review_pr_with_llm(repo, pr_number, file_list, diff_snippets, context_notes="run swiftlint")
+#     print(json.dumps(parsed, indent=2))
