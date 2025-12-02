@@ -3,6 +3,7 @@ import os
 import requests
 from groq_llm import GroqLLM
 from review_pipeline import process_review
+import time
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 
@@ -12,17 +13,51 @@ API_HEADERS = {
 }
 
 
-def github_get(url, headers=None):
+def github_get(url, headers=None, retries=5):
     h = API_HEADERS if headers is None else headers
-    r = requests.get(url, headers=h)
-    r.raise_for_status()
-    return r
+
+    for attempt in range(retries):
+        r = requests.get(url, headers=h)
+
+        if r.status_code == 403 and "X-RateLimit-Remaining" in r.headers:
+            remaining = r.headers.get("X-RateLimit-Remaining")
+            if remaining == "0":
+                wait = int(r.headers.get("Retry-After", "5"))
+                print(f"Rate limited. Waiting {wait}s...")
+                time.sleep(wait)
+                continue
+
+        try:
+            r.raise_for_status()
+            return r
+        except requests.RequestException:
+            if attempt == retries - 1:
+                raise
+            print(f"Request failed ({attempt+1}/{retries}). Retrying...")
+            time.sleep(1.5)
 
 
 def get_pr_files(owner, repo, pr_number):
-    """Fetch metadata for every file in the PR."""
-    url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/files"
-    return github_get(url).json()
+    """Fetch ALL PR files with pagination."""
+    page = 1
+    per_page = 100
+    results = []
+
+    while True:
+        url = (
+            f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/files"
+            f"?page={page}&per_page={per_page}"
+        )
+
+        data = github_get(url).json()
+        results.extend(data)
+
+        if len(data) < per_page:
+            break  # no more pages
+
+        page += 1
+
+    return results
 
 
 def get_pr_diff(owner, repo, pr_number):
