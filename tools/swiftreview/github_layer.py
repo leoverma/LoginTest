@@ -9,79 +9,179 @@ GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 
 def get_pr_diff(owner, repo, pr_number):
     """Fetch PR diff using GitHub REST API."""
-
     diff_url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}"
+
     headers = {
         "Authorization": f"Bearer {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github.v3.patch"   # IMPORTANT
+        "Accept": "application/vnd.github.v3.patch"
     }
 
-    r = requests.get(diff_url, headers=headers)
-
-    if r.status_code != 200:
-        raise RuntimeError(f"GitHub diff fetch failed: {r.status_code} {r.text}")
+    try:
+        r = requests.get(diff_url, headers=headers)
+        r.raise_for_status()
+    except requests.RequestException as e:
+        raise RuntimeError(f"Failed to fetch PR diff: {e}") from e
 
     diff = r.text
 
-    if not diff or diff.strip() == "":
-        raise RuntimeError("GitHub returned an EMPTY DIFF.")
+    if not diff.strip():
+        raise RuntimeError("GitHub returned an empty diff. The PR may not contain code changes.")
 
     return diff
 
 
 def post_comment(owner, repo, pr_number, body):
     """Post review comment on PR."""
-    comment_url = f"https://api.github.com/repos/{owner}/{repo}/issues/{pr_number}/comments"
+    url = f"https://api.github.com/repos/{owner}/{repo}/issues/{pr_number}/comments"
     headers = {
         "Authorization": f"Bearer {GITHUB_TOKEN}",
         "Accept": "application/vnd.github.v3+json"
     }
 
-    r = requests.post(comment_url, headers=headers, json={"body": body})
-    if r.status_code not in (200, 201):
-        raise RuntimeError(f"Failed to post comment: {r.status_code} {r.text}")
+    try:
+        r = requests.post(url, headers=headers, json={"body": body})
+        r.raise_for_status()
+    except requests.RequestException as e:
+        raise RuntimeError(f"Failed to post PR comment: {e}") from e
 
     return r.json()
 
 
 def run_from_event_path(event_path):
-    """Main entry: called from event_handler.py"""
+    """Main entry: orchestrates diff fetch → AI review → PR comment."""
+    print(f"Reading GitHub event payload from: {event_path}")
 
-    print(f"Reading GitHub event from: {event_path}")
+    if not os.path.exists(event_path):
+        raise RuntimeError(f"GitHub event file not found: {event_path}")
 
-    with open(event_path, "r") as f:
-        payload = json.load(f)
+    try:
+        with open(event_path, "r") as f:
+            payload = json.load(f)
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"Invalid GitHub event JSON: {e}")
 
     if "pull_request" not in payload:
-        raise RuntimeError("Not a pull_request event")
+        raise RuntimeError("Event is not a pull_request — SwiftReview AI only runs on PR events.")
 
     pr = payload["pull_request"]
     owner = payload["repository"]["owner"]["login"]
     repo = payload["repository"]["name"]
     pr_number = pr["number"]
 
-    print(f"Fetching PR #{pr_number} from {owner}/{repo}")
+    print(f"Processing PR #{pr_number} from {owner}/{repo}")
 
-    diff = get_pr_diff(owner, repo, pr_number)
+    try:
+        diff = get_pr_diff(owner, repo, pr_number)
+    except Exception as e:
+        raise RuntimeError(f"Failed to fetch PR diff: {e}")
 
-    print("Running review...")
     llm = GroqLLM()
-    review = process_review(diff, llm)
 
+    try:
+        review = process_review(diff, llm)
+    except Exception as e:
+        raise RuntimeError(f"SwiftReviewAI failed to analyze PR: {e}")
+
+    comment = review["markdown"]
     risk = review["risk"]
 
-    if risk <= 8:
-        print(f"Risk score {risk} <= 8. Failing PR check and blocking merge.")
-        # Post comment anyway
-        post_comment(owner, repo, pr_number, review["markdown"])
-        raise SystemExit(1)  # FAIL CI → Block merge
-    else:
-        print(f"✅ SwiftReview AI score {risk} ≥ 8. Merge allowed.")
+    try:
+        post_comment(owner, repo, pr_number, comment)
+    except Exception as e:
+        raise RuntimeError(f"Failed to post review comment: {e}")
 
-    print("Posting comment...")
-    post_comment(owner, repo, pr_number, review["markdown"])
+    # Fail build if score < 8
+    if risk < 8:
+        print(f"❌ SwiftReview AI: Risk score {risk} < 8 → merge is blocked.")
+        raise SystemExit(1)
 
-    print("SwiftReview AI completed successfully.")
+    print(f"✅ SwiftReview AI: Risk score {risk} ≥ 8 → merge allowed.")
+
+
+# import json
+# import os
+# import requests
+# from groq_llm import GroqLLM
+# from review_pipeline import process_review
+
+# GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+
+
+# def get_pr_diff(owner, repo, pr_number):
+#     """Fetch PR diff using GitHub REST API."""
+
+#     diff_url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}"
+#     headers = {
+#         "Authorization": f"Bearer {GITHUB_TOKEN}",
+#         "Accept": "application/vnd.github.v3.patch"   # IMPORTANT
+#     }
+
+#     r = requests.get(diff_url, headers=headers)
+
+#     if r.status_code != 200:
+#         raise RuntimeError(f"GitHub diff fetch failed: {r.status_code} {r.text}")
+
+#     diff = r.text
+
+#     if not diff or diff.strip() == "":
+#         raise RuntimeError("GitHub returned an EMPTY DIFF.")
+
+#     return diff
+
+
+# def post_comment(owner, repo, pr_number, body):
+#     """Post review comment on PR."""
+#     comment_url = f"https://api.github.com/repos/{owner}/{repo}/issues/{pr_number}/comments"
+#     headers = {
+#         "Authorization": f"Bearer {GITHUB_TOKEN}",
+#         "Accept": "application/vnd.github.v3+json"
+#     }
+
+#     r = requests.post(comment_url, headers=headers, json={"body": body})
+#     if r.status_code not in (200, 201):
+#         raise RuntimeError(f"Failed to post comment: {r.status_code} {r.text}")
+
+#     return r.json()
+
+
+# def run_from_event_path(event_path):
+#     """Main entry: called from event_handler.py"""
+
+#     print(f"Reading GitHub event from: {event_path}")
+
+#     with open(event_path, "r") as f:
+#         payload = json.load(f)
+
+#     if "pull_request" not in payload:
+#         raise RuntimeError("Not a pull_request event")
+
+#     pr = payload["pull_request"]
+#     owner = payload["repository"]["owner"]["login"]
+#     repo = payload["repository"]["name"]
+#     pr_number = pr["number"]
+
+#     print(f"Fetching PR #{pr_number} from {owner}/{repo}")
+
+#     diff = get_pr_diff(owner, repo, pr_number)
+
+#     print("Running review...")
+#     llm = GroqLLM()
+#     review = process_review(diff, llm)
+
+#     risk = review["risk"]
+
+#     if risk <= 8:
+#         print(f"Risk score {risk} <= 8. Failing PR check and blocking merge.")
+#         # Post comment anyway
+#         post_comment(owner, repo, pr_number, review["markdown"])
+#         raise SystemExit(1)  # FAIL CI → Block merge
+#     else:
+#         print(f"✅ SwiftReview AI score {risk} ≥ 8. Merge allowed.")
+
+#     print("Posting comment...")
+#     post_comment(owner, repo, pr_number, review["markdown"])
+
+#     print("SwiftReview AI completed successfully.")
 
 
 
