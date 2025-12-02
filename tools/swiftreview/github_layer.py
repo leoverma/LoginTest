@@ -223,5 +223,5 @@ def main(event_path):
 #     print("✅ SwiftReview AI completed successfully.")
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
