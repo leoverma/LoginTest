@@ -7,15 +7,6 @@ from review_pipeline import process_review
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 
 
-def github_api(url):
-    """Helper to call GitHub API with correct headers."""
-    headers = {
-        "Authorization": f"Bearer {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github.v3+json"
-    }
-    return requests.get(url, headers=headers)
-
-
 def get_pr_diff(owner, repo, pr_number):
     """Fetch PR diff using GitHub REST API."""
 
@@ -28,7 +19,7 @@ def get_pr_diff(owner, repo, pr_number):
     r = requests.get(diff_url, headers=headers)
 
     if r.status_code != 200:
-        raise RuntimeError(f"GitHub diff fetch failed: {r.text}")
+        raise RuntimeError(f"GitHub diff fetch failed: {r.status_code} {r.text}")
 
     diff = r.text
 
@@ -38,8 +29,26 @@ def get_pr_diff(owner, repo, pr_number):
     return diff
 
 
-def main(event_path):
-    print("Loading GitHub event payload...")
+def post_comment(owner, repo, pr_number, body):
+    """Post review comment on PR."""
+    comment_url = f"https://api.github.com/repos/{owner}/{repo}/issues/{pr_number}/comments"
+    headers = {
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github.v3+json"
+    }
+
+    r = requests.post(comment_url, headers=headers, json={"body": body})
+    if r.status_code not in (200, 201):
+        raise RuntimeError(f"Failed to post comment: {r.status_code} {r.text}")
+
+    return r.json()
+
+
+def run_from_event_path(event_path):
+    """Main entry: called from event_handler.py"""
+
+    print(f"Reading GitHub event from: {event_path}")
+
     with open(event_path, "r") as f:
         payload = json.load(f)
 
@@ -51,26 +60,95 @@ def main(event_path):
     repo = payload["repository"]["name"]
     pr_number = pr["number"]
 
-    print(f"Fetching PR diff for #{pr_number}")
+    print(f"Fetching PR #{pr_number} from {owner}/{repo}")
+
     diff = get_pr_diff(owner, repo, pr_number)
 
     print("Running review...")
     llm = GroqLLM()
-    final_comment = process_review(diff, llm)
+    review_markdown = process_review(diff, llm)
 
-    # POST comment back to GitHub
-    comment_url = f"https://api.github.com/repos/{owner}/{repo}/issues/{pr_number}/comments"
-    headers = {
-        "Authorization": f"Bearer {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github.v3+json"
-    }
+    print("Posting comment...")
+    post_comment(owner, repo, pr_number, review_markdown)
 
-    response = requests.post(comment_url, headers=headers, json={"body": final_comment})
+    print("SwiftReview AI completed successfully.")
 
-    if response.status_code not in (200, 201):
-        raise RuntimeError(f"Failed to post comment: {response.text}")
 
-    print("Review posted successfully.")
+
+
+# import json
+# import os
+# import requests
+# from groq_llm import GroqLLM
+# from review_pipeline import process_review
+
+# GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+
+
+# def github_api(url):
+#     """Helper to call GitHub API with correct headers."""
+#     headers = {
+#         "Authorization": f"Bearer {GITHUB_TOKEN}",
+#         "Accept": "application/vnd.github.v3+json"
+#     }
+#     return requests.get(url, headers=headers)
+
+
+# def get_pr_diff(owner, repo, pr_number):
+#     """Fetch PR diff using GitHub REST API."""
+
+#     diff_url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}"
+#     headers = {
+#         "Authorization": f"Bearer {GITHUB_TOKEN}",
+#         "Accept": "application/vnd.github.v3.patch"   # IMPORTANT
+#     }
+
+#     r = requests.get(diff_url, headers=headers)
+
+#     if r.status_code != 200:
+#         raise RuntimeError(f"GitHub diff fetch failed: {r.text}")
+
+#     diff = r.text
+
+#     if not diff or diff.strip() == "":
+#         raise RuntimeError("GitHub returned an EMPTY DIFF.")
+
+#     return diff
+
+
+# def main(event_path):
+#     print("Loading GitHub event payload...")
+#     with open(event_path, "r") as f:
+#         payload = json.load(f)
+
+#     if "pull_request" not in payload:
+#         raise RuntimeError("Not a pull_request event")
+
+#     pr = payload["pull_request"]
+#     owner = payload["repository"]["owner"]["login"]
+#     repo = payload["repository"]["name"]
+#     pr_number = pr["number"]
+
+#     print(f"Fetching PR diff for #{pr_number}")
+#     diff = get_pr_diff(owner, repo, pr_number)
+
+#     print("Running review...")
+#     llm = GroqLLM()
+#     final_comment = process_review(diff, llm)
+
+#     # POST comment back to GitHub
+#     comment_url = f"https://api.github.com/repos/{owner}/{repo}/issues/{pr_number}/comments"
+#     headers = {
+#         "Authorization": f"Bearer {GITHUB_TOKEN}",
+#         "Accept": "application/vnd.github.v3+json"
+#     }
+
+#     response = requests.post(comment_url, headers=headers, json={"body": final_comment})
+
+#     if response.status_code not in (200, 201):
+#         raise RuntimeError(f"Failed to post comment: {response.text}")
+
+#     print("Review posted successfully.")
 
 
 
