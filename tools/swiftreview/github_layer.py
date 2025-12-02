@@ -16,7 +16,8 @@ import requests
 from typing import Dict, Any, List
 
 from groq_llm import GroqLLM
-from review_pipeline import process_review
+from review_pipeline import process_review, format_review_comment
+
 
 # -------------------------
 # Logging
@@ -214,6 +215,7 @@ def run_from_event_path(event_path: str):
         "risk": 0,
         "final_comment": ""
     }
+
 
     for idx, chunk in enumerate(chunks, start=1):
         log.info(f"Processing chunk {idx}/{len(chunks)}")
