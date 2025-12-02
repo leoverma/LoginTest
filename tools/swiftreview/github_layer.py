@@ -42,6 +42,18 @@ class GitHubClient:
             "Accept": "application/vnd.github.v3+json"
         }
 
+    def split_into_chunks(text: str, max_chars: int = 15000) -> list:
+        """Split large review input into safe-sized chunks for Groq."""
+        chunks = []
+        while len(text) > max_chars:
+            split_point = text.rfind("\n", 0, max_chars)
+            if split_point == -1:
+                split_point = max_chars
+            chunks.append(text[:split_point])
+            text = text[split_point:]
+        chunks.append(text)
+        return chunks
+        
     # ------------------------------------------
     # Safe GET request (retry + rate-limit)
     # ------------------------------------------
@@ -144,17 +156,6 @@ class GitHubClient:
 
         return response.json()
 
-    def split_into_chunks(text: str, max_chars: int = 15000) -> list:
-        """Split large review input into safe-sized chunks for Groq."""
-        chunks = []
-        while len(text) > max_chars:
-            split_point = text.rfind("\n", 0, max_chars)
-            if split_point == -1:
-                split_point = max_chars
-            chunks.append(text[:split_point])
-            text = text[split_point:]
-        chunks.append(text)
-        return chunks
 
 # -----------------------------------------------------------
 # Build combined input for LLM (diff + raw files + patches)
