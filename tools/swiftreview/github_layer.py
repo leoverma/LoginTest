@@ -144,6 +144,17 @@ class GitHubClient:
 
         return response.json()
 
+    def split_into_chunks(text: str, max_chars: int = 15000) -> list:
+        """Split large review input into safe-sized chunks for Groq."""
+        chunks = []
+        while len(text) > max_chars:
+            split_point = text.rfind("\n", 0, max_chars)
+            if split_point == -1:
+                split_point = max_chars
+            chunks.append(text[:split_point])
+            text = text[split_point:]
+        chunks.append(text)
+        return chunks
 
 # -----------------------------------------------------------
 # Build combined input for LLM (diff + raw files + patches)
@@ -202,7 +213,38 @@ def run_from_event_path(event_path: str):
 
     # Run LLM
     llm = GroqLLM()
-    review = process_review(review_input, llm)
+    chunks = split_into_chunks(review_input, max_chars=9000)
+
+    combined_review = {
+        "summary": "",
+        "major_issues": [],
+        "minor_issues": [],
+        "suggestions": [],
+        "risk": 0,
+        "final_comment": ""
+    }
+
+    for idx, chunk in enumerate(chunks, start=1):
+        log.info(f"Processing chunk {idx}/{len(chunks)}...")
+        partial = process_review(chunk, llm)
+
+        # merge summaries
+        combined_review["summary"] += f"\n\n[Chunk {idx} Summary]\n" + partial["markdown"]
+
+        # merge lists
+        combined_review["major_issues"].extend(partial.get("major_issues", []))
+        combined_review["minor_issues"].extend(partial.get("minor_issues", []))
+        combined_review["suggestions"].extend(partial.get("suggestions", []))
+
+        # update risk (take max, better safety)
+        combined_review["risk"] = max(combined_review["risk"], partial.get("risk", 0))
+
+    # Now we have a merged review
+    review = {
+        "markdown": combined_review["summary"],
+        "risk": combined_review["risk"]
+    }
+
 
     # Post review comment
     gh.post_comment(owner, repo, pr_number, review["markdown"])
