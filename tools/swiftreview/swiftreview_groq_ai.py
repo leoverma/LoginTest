@@ -6,7 +6,8 @@ LLM pipeline for SwiftReview AI (GROQ-backed).
 import os
 import json
 from typing import List, Dict, Any
-from groq_llm import chat as groq_chat  # local wrapper above
+# from groq_llm import chat as groq_chat  # local wrapper above
+from groq_llm import GroqLLM
 
 # Config
 TEMPERATURE = float(os.getenv("SR_TEMPERATURE", "0.0"))
