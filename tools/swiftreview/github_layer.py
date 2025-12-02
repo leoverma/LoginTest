@@ -12,7 +12,7 @@ Responsibilities:
 import os
 import requests
 import time
-from swiftreview_ai import review_pr_with_llm, format_github_review_comments
+from swiftreview_groq_ai import review_pr_with_llm, format_github_review_comments
 
 # --- GitHub Config ---
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
