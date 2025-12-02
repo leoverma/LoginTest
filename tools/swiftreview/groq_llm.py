@@ -6,7 +6,7 @@ groq_model="llama-3.3-70b-versatile"
 
 class GroqLLM:
     def __init__(self, api_key=None, model=groq_model, max_retries=3):
-        self.client = Groq(os.getenv("GROQ_API_KEY"))
+        self.client = Groq(api_key=os.getenv("GROQ_API_KEY"))
         self.model = model
         self.max_retries = max_retries
 
