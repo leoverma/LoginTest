@@ -10,10 +10,11 @@ class GroqLLM:
         self.model = model
         self.max_retries = max_retries
 
-    def chat(self, messages):
+    def chat(self, messages,initial_delay=10, max_retries=5):
+        delay = initial_delay
         last_err = None
-
-        for attempt in range(self.max_retries):
+        
+        for attempt in range(max_retries):
             try:
                 response = self.client.chat.completions.create(
                     model=self.model,
@@ -22,10 +23,23 @@ class GroqLLM:
                     messages=messages,
                 )
                 return response.choices[0].message.content
+            except RuntimeError as e:
+                if '429' in str(e):
+                    print(f'[Groq Error] Rate limit hit. Retrying after {delay}s...')
+                    time.sleep(delay)
+                    delay *= 2  # Exponential backoff
+                else:
+                    raise
+        raise RuntimeError('groq chat failed after retries (rate limit), {last_err}')
+        
 
-            except Exception as e:
-                last_err = e
-                print(f"[Groq Error] Attempt {attempt+1}/{self.max_retries}: {e}")
-                time.sleep(1.5)
+        # for attempt in range(self.max_retries):
+        #     try:
+                
 
-        raise RuntimeError(f"groq chat failed after retries: {last_err}")
+        #     except Exception as e:
+        #         last_err = e
+        #         print(f"[Groq Error] Attempt {attempt+1}/{self.max_retries}: {e}")
+        #         time.sleep(1.5)
+
+        # raise RuntimeError(f"groq chat failed after retries: {last_err}")
