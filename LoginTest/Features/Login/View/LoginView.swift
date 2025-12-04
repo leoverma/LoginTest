@@ -41,8 +41,26 @@ struct LoginView: View {
             }
             .buttonStyle(.borderedProminent)
             .disabled(viewModel.isLoading)
+            .padding()
+            
+            
+            switch viewModel.loginState {
+                case .loading:
+                    ProgressView()
+                case .success(let user):
+                    Text("Welcome \(user.name)!")
+                        .foregroundColor(.green)
+                case .error(let error):
+                    Text(error.localizedDescription)
+                        .foregroundColor(.red)
+                case .idle:
+                    if let error = viewModel.errorMessage {
+                        Text(error)
+                            .foregroundColor(.red)
+                    }
+            }
         }
-        .padding()
+        
     }
 }
 
