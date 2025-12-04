@@ -21,9 +21,11 @@ final class LoginViewModel: ObservableObject {
     @Published var loggedInUser: User?
 
     private let authService: AuthServicing
+    let signupVM: SignupViewModel
 
-    init(authService: AuthServicing = AuthService()) {
+    init(authService: AuthServicing) {
         self.authService = authService
+        self.signupVM = SignupViewModel()
     }
 
     func login() {
