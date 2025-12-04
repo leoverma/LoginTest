@@ -22,7 +22,7 @@ final class LoginViewModel: ObservableObject {
 
     private let authService: AuthServicing
 
-    init(authService: AuthServicing = AuthService()) {
+    init(authService: AuthServicing) {
         self.authService = authService
     }
 
