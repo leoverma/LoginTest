@@ -22,7 +22,7 @@ final class LoginViewModel: ObservableObject {
 
     private let authService: AuthServicing
 
-    init(authService: AuthServicing = AuthService()) {
+    init(authService: AuthService){
         self.authService = authService
     }
 
@@ -38,7 +38,7 @@ final class LoginViewModel: ObservableObject {
                 loggedInUser = user
                 errorMessage = "Welcome \(user.name?.uppercased() ?? "")!!!"
             } catch {
-                loggedInUser = User(id: "0", name: nil, email: nil)
+                loggedInUser = User(id: UUID(), name: nil, email: nil)
                 errorMessage = "Login failed. Please try again."
             }
             isLoading = false
