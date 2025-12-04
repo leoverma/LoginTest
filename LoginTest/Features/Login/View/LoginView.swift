@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct LoginView: View {
-    @StateObject private var viewModel = LoginViewModel()
+    @StateObject private var viewModel = LoginViewModel(authService: AuthService())
 
     var body: some View {
         VStack(spacing: 16) {
@@ -25,7 +25,7 @@ struct LoginView: View {
 
             if let message = viewModel.errorMessage {
                 Text(message)
-                    .foregroundColor(((viewModel.loggedInUser?.name) != nil) ?.green : .red)
+                    .foregroundColor(((viewModel.loggedInUser) != nil) ?.green : .red)
                     .font(.footnote)
             }
 
@@ -41,8 +41,26 @@ struct LoginView: View {
             }
             .buttonStyle(.borderedProminent)
             .disabled(viewModel.isLoading)
+            .padding()
+            
+            
+            switch viewModel.loginState {
+                case .loading:
+                    ProgressView()
+                case .success(let user):
+                    Text("Welcome \(user.name)!")
+                        .foregroundColor(.green)
+                case .error(let error):
+                    Text(error.localizedDescription)
+                        .foregroundColor(.red)
+                case .idle:
+                    if let error = viewModel.errorMessage {
+                        Text(error)
+                            .foregroundColor(.red)
+                    }
+            }
         }
-        .padding()
+        
     }
 }
 

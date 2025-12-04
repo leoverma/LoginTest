@@ -5,8 +5,10 @@
 //  Created by Manish.K on 11/28/25.
 //
 
+import Foundation
+
 struct User: Identifiable, Codable {
-    let id: String
-    let name: String?
-    let email: String?
+    let id: UUID
+    let name: String
+    let email: String
 }

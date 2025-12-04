@@ -17,9 +17,11 @@ final class AuthService: AuthServicing {
         // Map response to User and return
 //        throw NSError(domain: "NotImplemented", code: -1)
         let domain = request.email.lowercased().split(separator: "@")[1]
-        // print(domain)
         if domain == "gmail.com"{
-            let user = User(id: "1", name: String(request.email.lowercased().split(separator: "@")[0]), email: request.email.lowercased())
+            let user = User(id: UUID(), name: String(request.email.lowercased().split(separator: "@")[0]), email: request.email.lowercased())
+            if user.name.isEmpty{
+                throw NSError(domain: "NotImplemented", code: -1)
+            }
             return user
         }
         throw NSError(domain: "NotImplemented", code: -1)
