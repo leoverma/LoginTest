@@ -50,6 +50,24 @@ final class LoginViewModel: ObservableObject {
             errorMessage = "Email and password are required."
             return false
         }
+        guard email.isValidEmail else {
+            errorMessage = "Please enter a valid email address."
+            return false
+        }
+        
+        guard password.count >= 6 else {
+            errorMessage = "Password must be at least 6 characters."
+            return false
+        }
         return true
+    }
+}
+
+// Email validation extension
+extension String {
+    var isValidEmail: Bool {
+        let emailRegEx = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
+        let emailPredicate = NSPredicate(format:"SELF MATCHES %@", emailRegEx)
+        return emailPredicate.evaluate(with: self)
     }
 }
