@@ -38,9 +38,8 @@ final class LoginViewModel: ObservableObject {
                 loggedInUser = user
                 errorMessage = "Welcome \(user.name.uppercased())!!!"
             } catch {
-                loggedInUser = User(id: UUID(), name: "", email: "")
+                loggedInUser = nil
                 errorMessage = "Login failed. Please try again."
-                print(loggedInUser!)
             }
             isLoading = false
         }

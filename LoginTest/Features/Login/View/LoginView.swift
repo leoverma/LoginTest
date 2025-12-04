@@ -25,7 +25,7 @@ struct LoginView: View {
 
             if let message = viewModel.errorMessage {
                 Text(message)
-                    .foregroundColor(((viewModel.loggedInUser?.name) != "") ?.green : .red)
+                    .foregroundColor(((viewModel.loggedInUser) != nil) ?.green : .red)
                     .font(.footnote)
             }
 
