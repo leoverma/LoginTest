@@ -11,7 +11,32 @@ import Combine
 @MainActor
 final class SignupViewModel: ObservableObject {
     
-    func signup() {
+    @Published var isLoading = false
+    @Published var errorMessage: String?
+    
+    func signup() async {
+        guard validateFields() else {
+            errorMessage = "Please check the form fields."
+            return 
+        }
+        
+        isLoading = true
+        defer { isLoading = false }
+        
+        do {
+            try await performSignup()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+    
+    private func validateFields() -> Bool {
+        // Add real validation
+        true
+    }
+    
+    private func performSignup() async throws {
+        // API call goes here
         print("Signup click")
     }
 }

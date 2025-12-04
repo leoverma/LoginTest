@@ -54,7 +54,6 @@ struct LoginView: View {
                 }
             }
             .buttonStyle(.borderedProminent)
-            .disabled(viewModel.isLoading)
         }
         }
         .padding()
