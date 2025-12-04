@@ -25,7 +25,7 @@ final class LoginViewModel: ObservableObject {
     
     init(signupVM: SignupViewModel, authService: AuthServicing) {
         self.authService = authService
-        self.signupVM = SignupViewModel()
+        self.signupVM = signupVM
     }
 
     func login() {
