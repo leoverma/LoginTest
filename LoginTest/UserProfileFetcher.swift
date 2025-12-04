@@ -4,6 +4,8 @@
 //
 //  Created by Manish.K on 12/2/25.
 //
+
+import SwiftUI
 class UserProfileFetcher {
 
     var username: String!   // force unwrap
@@ -18,7 +20,7 @@ class UserProfileFetcher {
         isLoading = true
 
         // Fake async fetch — but no concurrency handling
-        let url = URL(string: "https://api.example.com/users/\(username)")!
+        let url = URL(string: "https://api.example.com/users/\(username ?? "")")!
 
         let task = URLSession.shared.dataTask(with: url) { data, response, error in
             // ignoring response, error, statusCode
