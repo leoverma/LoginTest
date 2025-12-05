@@ -21,7 +21,7 @@ final class LoginViewModel: ObservableObject {
     @Published var loggedInUser: User?
 
     private let authService: AuthServicing
-    private let signupVM: SignupViewModel
+    let signupVM: SignupViewModel
     
     init(signupVM: SignupViewModel, authService: AuthServicing) {
         self.authService = authService

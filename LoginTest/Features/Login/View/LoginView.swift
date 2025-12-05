@@ -8,31 +8,33 @@
 import SwiftUI
 
 struct LoginView: View {
-    @StateObject private var viewModel = LoginViewModel(authService: AuthService())
+//    @StateObject private var viewModel = LoginViewModel(signupVM: SignupViewModel(), authService: AuthService())
+    
+    @StateObject var loginVM: LoginViewModel
 
     var body: some View {
         VStack(spacing: 16) {
             Text("Welcome back")
                 .font(.title).bold()
             
-            TextField("Email", text: $viewModel.email)
+            TextField("Email", text: $loginVM.email)
                 .textContentType(.emailAddress)
                 .keyboardType(.emailAddress)
                 .textFieldStyle(.roundedBorder)
             
-            SecureField("Password", text: $viewModel.password)
+            SecureField("Password", text: $loginVM.password)
                 .textFieldStyle(.roundedBorder)
             
-            if let message = viewModel.errorMessage {
+            if let message = loginVM.errorMessage {
                 Text(message)
-                    .foregroundColor(((viewModel.loggedInUser?.name) != nil) ?.green : .red)
+                    .foregroundColor(((loginVM.loggedInUser?.name) != nil) ?.green : .red)
                     .font(.footnote)
             }
             HStack{
             Button {
-                viewModel.login()
+                loginVM.login()
             } label: {
-                if viewModel.isLoading {
+                if loginVM.isLoading {
                     ProgressView()
                 } else {
                     Text("Login")
@@ -40,13 +42,15 @@ struct LoginView: View {
                 }
             }
             .buttonStyle(.borderedProminent)
-            .disabled(viewModel.isLoading)
+            .disabled(loginVM.isLoading)
             
             
             Button {
-                viewModel.signupVM.signup()
+                Task {
+                    await loginVM.signupVM.signup()
+                }
             } label: {
-                if viewModel.isLoading {
+                if loginVM.isLoading {
                     ProgressView()
                 } else {
                     Text("Signup")
@@ -61,5 +65,6 @@ struct LoginView: View {
 }
 
 #Preview {
-    LoginView()
+    let svm = SignupViewModel()
+    LoginView(loginVM: LoginViewModel(signupVM: svm, authService: AuthService()))
 }
