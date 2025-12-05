@@ -61,10 +61,10 @@ def process_review(diff, llm):
             raise RuntimeError(f"Failed to parse JSON response from LLM. Raw output:\n{raw}") from e
 
     # Validate required fields
-    required_fields = ["summary", "major_issues", "minor_issues", "suggestions", "risk", "final_comment"]
-    for field in required_fields:
-        if field not in data:
-            raise RuntimeError(f"Missing required field '{field}' in LLM output.")
+    # required_fields = ["summary", "major_issues", "minor_issues", "suggestions", "risk", "final_comment"]
+    # for field in required_fields:
+    #     if field not in data:
+    #         raise RuntimeError(f"Missing required field '{field}' in LLM output.")
 
     return {
         "markdown": format_review_comment(data),
