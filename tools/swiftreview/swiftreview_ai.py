@@ -154,6 +154,8 @@ def call_groq_llm(diff, repo="Unknown", pr_number="Unknown", file_list="Unknown"
         diff_snippets=diff
     )
 
+    print("User Prompt: ",user_prompt)
+
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": user_prompt}
@@ -167,6 +169,7 @@ def call_groq_llm(diff, repo="Unknown", pr_number="Unknown", file_list="Unknown"
 
     result = groq_client_llm.chat(messages)
     print("LLM Response: ",result)
+    return result
 
 # ---------------------------
 # Parse JSON output safely
