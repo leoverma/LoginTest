@@ -80,7 +80,7 @@ def run_from_event_path(event_path):
 
     try:
         # review = process_review(diff, llm)
-        review = review_pr_with_llm(repo, pr_number, [], diff, "Automated PR Review for Swift Code")
+        review = review_pr_with_llm(diff)
     except Exception as e:
         raise RuntimeError(f"SwiftReviewAI failed to analyze PR: {e}")
 

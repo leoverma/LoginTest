@@ -144,9 +144,18 @@ def build_user_prompt(repo: str, pr_number: int, file_list: List[str],
 # ---------------------------
 # GROQ LLM call
 # ---------------------------
-def call_groq_llm(system_prompt: str, user_prompt: str) -> str:
+def call_groq_llm(diff, repo="Unknown", pr_number="Unknown", file_list="Unknown", context_notes="None"):
+    # Compose the user prompt as in USER_PROMPT_TEMPLATE
+    user_prompt = USER_PROMPT_TEMPLATE.format(
+        repo=repo,
+        pr_number=pr_number,
+        file_list=file_list,
+        context_notes=context_notes,
+        diff_snippets=diff
+    )
+
     messages = [
-        {"role": "system", "content": system_prompt},
+        {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": user_prompt}
     ]
     groq_client_llm = GroqLLM(api_key=GROQ_API_KEY)
@@ -157,7 +166,7 @@ def call_groq_llm(system_prompt: str, user_prompt: str) -> str:
     ]
 
     result = groq_client_llm.chat(messages)
-    print(result)
+    print("LLM Response: ",result)
 
 # ---------------------------
 # Parse JSON output safely
@@ -192,16 +201,18 @@ def parse_llm_json_response(message_content: str) -> Dict[str, Any]:
 # High-level review flow
 # ---------------------------
 
-def review_pr_with_llm(repo: str, pr_number: int, file_list: List[str],
-                       diff_snippets: str, context_notes: str = "") -> Dict[str, Any]:
+# def review_pr_with_llm(repo: str, pr_number: int, file_list: List[str],
+#                        diff_snippets: str, context_notes: str = "") -> Dict[str, Any]:
+def review_pr_with_llm(diff, llm="Unknown", repo="Unknown", pr_number="Unknown", file_list="Unknown", context_notes="None"):    
     """
     Main entrypoint: builds prompts, calls LLM, returns structured issues.
     """
     system_msg = {"role": "system", "content": SYSTEM_PROMPT}
     user_msg = {"role": "user", "content": build_user_prompt(repo, pr_number, file_list,
-                                                            diff_snippets, context_notes)}
+                                                            diff, context_notes)}
     # assistant_msg = call_llm([system_msg, user_msg])
-    assistant_msg = call_groq_llm(system_msg["content"], user_msg["content"])
+    assistant_msg = call_groq_llm(diff)
+
     parsed = parse_llm_json_response(assistant_msg.get("content", ""))
     return parsed
 
