@@ -3,7 +3,6 @@ import os
 import requests
 from groq_llm import GroqLLM
 from review_pipeline import process_review
-from swiftreview_ai import review_pr_with_llm
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 
@@ -79,8 +78,7 @@ def run_from_event_path(event_path):
     llm = GroqLLM()
 
     try:
-        # review = process_review(diff, llm)
-        review = review_pr_with_llm(diff)
+        review = process_review(diff, llm)
     except Exception as e:
         raise RuntimeError(f"SwiftReviewAI failed to analyze PR: {e}")
 

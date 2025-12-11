@@ -1,4 +1,12 @@
 import json
+import os
+
+# def _load_prompt_file(filename):
+#     with open(os.path.join(os.path.dirname(__file__), filename), 'r', encoding='utf-8') as f:
+#         return f.read()
+
+# SYSTEM_PROMPT = _load_prompt_file("swiftreview_system_prompt.txt")
+# USER_PROMPT_TEMPLATE = _load_prompt_file("swiftreview_user_prompt_template.txt")
 
 SYSTEM_PROMPT = """
 You are SwiftReview — an automated code reviewer specialized in Swift/iOS code.
@@ -14,11 +22,10 @@ a short summary, and suggested fixes. For each issue provide:
 Return ONLY a single JSON object, nothing else.
 """
 
-USER_PROMPT_TEMPLATE = """
+USER_PROMPT_TEMPLATE="""
 Repository: {repo}
 Pull request: {pr_number}
 Files changed: {file_list}
-
 Context:
 {context_notes}
 
@@ -46,9 +53,7 @@ Output JSON schema:
     }},
     ...
   ]
-}}
-"""
-
+}}"""
 
 def process_review(diff, llm, repo="Unknown", pr_number="Unknown", file_list="Unknown", context_notes="None"):
     # Compose the user prompt as in USER_PROMPT_TEMPLATE
@@ -128,3 +133,4 @@ def _highest_severity_risk(issues):
         sev = i.get("severity", "").lower()
         max_sev_num = max(max_sev_num, sev_map.get(sev, 0))
     return max_sev_num
+
