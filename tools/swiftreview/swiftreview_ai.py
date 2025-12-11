@@ -146,19 +146,19 @@ def build_user_prompt(repo: str, pr_number: int, file_list: List[str],
 # ---------------------------
 def call_groq_llm(diff, repo="Unknown", pr_number="Unknown", file_list="Unknown", context_notes="None"):
     # Compose the user prompt as in USER_PROMPT_TEMPLATE
-    user_prompt = USER_PROMPT_TEMPLATE.format(
-        repo=repo,
-        pr_number=pr_number,
-        file_list=file_list,
-        context_notes=context_notes,
-        diff_snippets=diff
-    )
+    # user_prompt = USER_PROMPT_TEMPLATE.format(
+    #     repo=repo,
+    #     pr_number=pr_number,
+    #     file_list=file_list,
+    #     context_notes=context_notes,
+    #     diff_snippets=diff
+    # )
 
-    print("User Prompt: ",user_prompt)
+    # print("User Prompt: ",user_prompt)
 
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": user_prompt}
+        {"role": "user", "content": diff}
     ]
     groq_client_llm = GroqLLM(api_key=GROQ_API_KEY)
 
