@@ -5,7 +5,7 @@ from groq_llm import GroqLLM
 from review_pipeline import process_review
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
-
+RISK_THRESHOLD = 5  # Fail build if risk score >= this value
 
 def get_pr_diff(owner, repo, pr_number):
     """Fetch PR diff using GitHub REST API."""
@@ -90,12 +90,12 @@ def run_from_event_path(event_path):
     except Exception as e:
         raise RuntimeError(f"Failed to post review comment: {e}")
 
-    # Fail build if score < 8
-    if risk < 8:
-        print(f"❌ SwiftReview AI: Risk score {risk} < 8 → merge is blocked.")
+    # Fail build if score >= 5
+    if risk >= RISK_THRESHOLD:
+        print(f"❌ SwiftReview AI: Risk score {risk} >= {RISK_THRESHOLD} → merge is blocked.")
         raise SystemExit(1)
 
-    print(f"✅ SwiftReview AI: Risk score {risk} ≥ 8 → merge allowed.")
+    print(f"✅ SwiftReview AI: Risk score {risk} < {RISK_THRESHOLD} → merge allowed.")
 
 
 # import json
