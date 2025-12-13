@@ -41,6 +41,7 @@ final class LoginViewModel: ObservableObject {
                 loggedInUser = User(id: "0", name: nil, email: nil)
                 errorMessage = "Login failed. Please try again."
             }
+            print(loggedInUser.name!)
             isLoading = false
         }
     }
