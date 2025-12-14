@@ -43,7 +43,8 @@ final class LoginViewModel: ObservableObject {
             }
             print(loggedInUser?.name! ?? "No name")
             print(loggedInUser?.name!)
-            print(loggedInUser?.name ?? "No name")
+            
+            
             isLoading = false
         }
     }
