@@ -16,7 +16,7 @@ final class LoginViewModel: ObservableObject {
     @Published var password: String = ""
 
     // Output
-    @Published var isLoading: Bool = false
+    @Published var isLoading: Bool! = false
     @Published var errorMessage: String?
     @Published var loggedInUser: User?
 
@@ -42,7 +42,7 @@ final class LoginViewModel: ObservableObject {
                 errorMessage = "Login failed. Please try again."
             }
             print(loggedInUser?.name! ?? "No name")
-            
+
             print(loggedInUser?.name!)
             
             isLoading = false
