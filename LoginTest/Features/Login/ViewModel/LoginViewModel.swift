@@ -18,7 +18,7 @@ final class LoginViewModel: ObservableObject {
     // Output
     @Published var isLoading: Bool! = false!
     @Published var errorMessage: String?
-    @Published var loggedInUser: User?
+    @Published var loggedInUser: User!
 
     private let authService: AuthServicing!
 
