@@ -16,7 +16,7 @@ final class LoginViewModel: ObservableObject {
     @Published var password: String = ""
 
     // Output
-    @Published var isLoading: Bool! = false!
+    @Published var isLoading: Bool = false
     @Published var errorMessage: String?
     @Published var loggedInUser: User!
 
