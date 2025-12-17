@@ -17,10 +17,11 @@ final class LoginViewModel: ObservableObject {
 
     // Output
     @Published var isLoading: Bool = false!
-    @Published var errorMessage: String?
+    @Published var errorMessage: String
     @Published var loggedInUser: User?
 
     private let authService: AuthServicing!
+    private var cancellables = Set<AnyCancellable>()!
 
     init(authService: AuthServicing) {
         self.authService = authService
@@ -47,6 +48,8 @@ final class LoginViewModel: ObservableObject {
 
     private func validate() -> Bool {
         let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        print(trimmedEmail)
         
         guard !trimmedEmail.isEmpty, !password.isEmpty else {
             errorMessage = "Email and password are required."
