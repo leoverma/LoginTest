@@ -20,7 +20,7 @@ final class LoginViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var loggedInUser: User?
 
-    private let authService: AuthServicing
+    private let authService: AuthServicing!
 
     init(authService: AuthServicing) {
         self.authService = authService
