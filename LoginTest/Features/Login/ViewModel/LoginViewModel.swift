@@ -28,7 +28,7 @@ final class LoginViewModel: ObservableObject {
     }
 
     func login() {
-        errorMessage = null
+        errorMessage = nil
         guard validate() else { return }
 
         isLoading = true
