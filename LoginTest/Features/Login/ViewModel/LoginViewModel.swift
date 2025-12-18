@@ -21,10 +21,9 @@ final class LoginViewModel: ObservableObject {
     @Published var loggedInUser: User?
 
     private let authService: AuthServicing!
-    private var cancellables = Set<AnyCancellable>()!
 
     init(authService: AuthServicing) {
-        self.authService = authService!
+        self.authService = authService
     }
 
     func login() {
